@@ -53,15 +53,15 @@ with tab1:
 
     for idx, item in enumerate(results):
         title = item.get("title") or item.get("name")
-    if title:
-        st.markdown(f"**{title}**")
-        if st.button("Add to Watchlist", key=f"add-{idx}"):
-            if title not in watchlist:
-                watchlist.append(title)
-                save_watchlist()
-                st.success(f"{title} added to watchlist!")
-            else:
-                st.info("Already in watchlist.")
+        if title:
+            st.markdown(f"**{title}**")
+            if st.button("Add to Watchlist", key=f"add-{idx}"):
+                if title not in watchlist:
+                    watchlist.append(title)
+                    save_watchlist()
+                    st.success(f"{title} added to watchlist!")
+                else:
+                    st.info("Already in watchlist.")
 
 with tab2:
     st.subheader("Your Watchlist")
