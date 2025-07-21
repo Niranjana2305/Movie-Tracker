@@ -3,8 +3,12 @@ import streamlit as st
 import requests
 import json
 import os
+from dotenv import load_dotenv
 
-API_KEY = "262cdc36838de887c0e5293332bae877"
+load_dotenv() 
+
+API_KEY = os.getenv("TMDB_API_KEY")
+
 BASE_URL = "https://api.themoviedb.org/3"
 
 WATCHLIST_FILE = "watchlist.json"
@@ -47,17 +51,17 @@ with tab1:
     else:
         results = get_upcoming()
 
-    for item in results:
+    for idx, item in enumerate(results):
         title = item.get("title") or item.get("name")
-        if title:
-            st.markdown(f"**{title}**")
-            if st.button(f"Add to Watchlist - {title}"):
-                if title not in watchlist:
-                    watchlist.append(title)
-                    save_watchlist()
-                    st.success(f"{title} added to watchlist!")
-                else:
-                    st.info("Already in watchlist.")
+    if title:
+        st.markdown(f"**{title}**")
+        if st.button("Add to Watchlist", key=f"add-{idx}"):
+            if title not in watchlist:
+                watchlist.append(title)
+                save_watchlist()
+                st.success(f"{title} added to watchlist!")
+            else:
+                st.info("Already in watchlist.")
 
 with tab2:
     st.subheader("Your Watchlist")
@@ -72,6 +76,6 @@ with tab2:
                     watchlist.remove(title)
                     save_watchlist()
                     st.warning(f"{title} removed.")
-                    st.experimental_rerun()
+                    st.rerun(*, scope="app")
     else:
         st.write("Watchlist is empty!")
