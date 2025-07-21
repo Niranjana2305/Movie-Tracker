@@ -76,6 +76,6 @@ with tab2:
                     watchlist.remove(title)
                     save_watchlist()
                     st.warning(f"{title} removed.")
-                    st.rerun(*, scope="app")
+                    st.rerun(scope="app")
     else:
         st.write("Watchlist is empty!")
