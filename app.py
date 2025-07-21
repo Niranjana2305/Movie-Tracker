@@ -69,7 +69,7 @@ with tab2:
                 st.write(title)
             with col2:
                 if st.button("Remove", key=f"remove_{idx}_{title}"):
-                    watchlist.pop(idx)
+                    watchlist.remove(title)
                     save_watchlist()
                     st.warning(f"{title} removed.")
                     st.experimental_rerun()
