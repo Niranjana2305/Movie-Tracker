@@ -5,7 +5,6 @@ from database import init
 from models import Movie, Watchlist
 from tortoise import run_async
 
-# TMDB Genre Mapping (can be expanded)
 GENRE_MAP = {
     28: "Action",
     12: "Adventure",
