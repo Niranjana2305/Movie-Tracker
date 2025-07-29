@@ -1,0 +1,164 @@
+# run using python -m streamlit run app.py
+import streamlit as st
+import asyncio
+from database import init
+from models import Movie, Watchlist
+from tortoise import run_async
+
+# TMDB Genre Mapping (can be expanded)
+GENRE_MAP = {
+    28: "Action",
+    12: "Adventure",
+    16: "Animation",
+    35: "Comedy",
+    80: "Crime",
+    99: "Documentary",
+    18: "Drama",
+    10751: "Family",
+    14: "Fantasy",
+    36: "History",
+    27: "Horror",
+    10402: "Music",
+    9648: "Mystery",
+    10749: "Romance",
+    878: "Science Fiction",
+    10770: "TV Movie",
+    53: "Thriller",
+    10752: "War",
+    37: "Western",
+}
+
+IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w200"
+
+async def get_all_movies():
+    return await Movie.all()
+
+async def get_watchlist_ids():
+    entries = await Watchlist.all().prefetch_related("movie")
+    return set(entry.movie.id for entry in entries if entry.movie)
+
+async def get_watchlist_movies():
+    return await Watchlist.all().prefetch_related("movie")
+
+async def add_to_watchlist(movie_id):
+    movie = await Movie.get(id=movie_id)
+    await Watchlist.get_or_create(movie=movie)
+
+async def remove_from_watchlist(movie_id):
+    entry = await Watchlist.filter(movie_id=movie_id).first()
+    if entry:
+        await entry.delete()
+
+async def toggle_watched(movie_id):
+    entry = await Watchlist.filter(movie_id=movie_id).first()
+    if entry:
+        entry.watched = not entry.watched
+        await entry.save()
+
+def run_async(coro):
+    return asyncio.run(coro)
+
+# Movie Grid
+def show_movie_grid(movies, watchlist_ids=None, show_add=True, show_remove=False, show_watched_toggle=False):
+    cols = st.columns(4)
+    for idx, movie in enumerate(movies):
+        col = cols[idx % 4]
+        with col:
+            title = movie.title or movie.name or "Untitled"
+            poster = movie.poster_path
+
+            if poster:
+                st.image(f"{IMAGE_BASE_URL}{poster}", use_container_width=True)
+            st.markdown(f"**{title}**")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Details", key=f"details_{movie.id}"):
+                    st.query_params.update({"movie_id": str(movie.id)})
+                    st.rerun()
+
+            with col2:
+                if show_add:
+                    if watchlist_ids and movie.id in watchlist_ids:
+                        st.button("In Watchlist", key=f"in_watchlist_{movie.id}", disabled=True)
+                    else:
+                        if st.button("Add", key=f"add_{movie.id}"):
+                            run_async(add_to_watchlist(movie.id))
+                            st.rerun()
+                if show_remove:
+                    if st.button("Remove", key=f"remove_{movie.id}"):
+                        run_async(remove_from_watchlist(movie.id))
+                        st.rerun()
+                if show_watched_toggle:
+                    entry = run_async(Watchlist.filter(movie_id=movie.id).first())
+                    if entry:
+                        label = "Unmark Watched" if entry.watched else "Mark Watched"
+                        if st.button(label, key=f"watched_{movie.id}"):
+                            run_async(toggle_watched(movie.id))
+                            st.rerun()
+
+def main():
+    run_async(init())
+
+    st.title("Movie Tracker and Watchlist")
+
+    movie_id_param = st.query_params.get("movie_id", None)
+    if movie_id_param:
+        from pages import details 
+        details.show_movie_details(int(movie_id_param))
+        return
+
+    tab1, tab2 = st.tabs([" Discover", " Watchlist"])
+
+    with tab1:
+        search = st.text_input("Search for a movie or show")
+        selected_genres = st.multiselect("Filter by genre", list(GENRE_MAP.values()))
+        all_movies = run_async(get_all_movies())
+        watchlist_ids = run_async(get_watchlist_ids())
+
+        if search:
+            all_movies = [
+                m for m in all_movies
+                if search.lower() in (m.title or m.name or "").lower()
+            ]
+
+        show_movie_grid(all_movies, watchlist_ids=watchlist_ids, show_add=True)
+        if selected_genres:
+            selected_ids = {id for id, name in GENRE_MAP.items() if name in selected_genres}
+            all_movies = [
+                m for m in all_movies
+                if m.genre_ids and any(genre_id in selected_ids for genre_id in m.genre_ids)
+        ]
+
+    with tab2:
+        watchlist_entries = run_async(get_watchlist_movies())
+        movies = [entry.movie for entry in watchlist_entries if entry.movie]
+
+        cols = st.columns(4)
+        for idx, entry in enumerate(watchlist_entries):
+            movie = entry.movie
+            if not movie:
+                continue
+            col = cols[idx % 4]
+            with col:
+                title = movie.title or movie.name or "Untitled"
+                if movie.poster_path:
+                    st.image(f"{IMAGE_BASE_URL}{movie.poster_path}", use_container_width=True)
+                st.markdown(f"**{title}**")
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("Remove", key=f"remove_watch_{movie.id}"):
+                        run_async(remove_from_watchlist(movie.id))
+                        st.rerun()
+                with col2:
+                    label = "Unmark Watched" if entry.watched else "Mark Watched"
+                    if st.button(label, key=f"toggle_watch_{movie.id}"):
+                        run_async(toggle_watched(movie.id))
+                        st.rerun()
+
+                if entry.watched:
+                    st.markdown("<small><i>Watched</i></small>", unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
