@@ -10,6 +10,14 @@ class Movie(models.Model):
     media_type = fields.CharField(max_length=10, default="movie")
     cast_data = fields.TextField(null=True)
     genre_ids = fields.TextField(null=True)
+     def get_cast(self):
+        if self.cast_data:
+            return json.loads(self.cast_data)
+        return []
+    def get_genre_ids(self):
+        if self.genre_ids:
+            return json.loads(self.genre_ids)
+        return []
 
 class Watchlist(models.Model):
     id = fields.IntField(pk=True)
