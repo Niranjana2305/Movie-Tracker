@@ -1,9 +1,10 @@
 import os
 import json
-import requests
+import httpx
 from dotenv import load_dotenv
 from tortoise import Tortoise
 from models import Movie, Watchlist
+from datetime import datetime
 
 load_dotenv()
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
@@ -15,31 +16,33 @@ async def init():
     )
     await Tortoise.generate_schemas()
 
-# Fetch upcoming movies from TMDB
-def fetch_upcoming_movies(page=1):
-    url = f"https://api.themoviedb.org/3/movie/upcoming?api_key={TMDB_API_KEY}&language=en-US&page={page}"
-    response = requests.get(url)
-    if response.ok:
-        return response.json().get("results", [])
-    else:
-        print("Failed to fetch movies")
-        return []
 
-def fetch_movie_cast(movie_id):
+# Async fetch upcoming movies from TMDB
+async def fetch_upcoming_movies(page=1):
+    url = f"https://api.themoviedb.org/3/movie/upcoming?api_key={TMDB_API_KEY}&language=en-US&page={page}"
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        if response.status_code == 200:
+            credits = response.json()
+            return credits.get("results", [])
+    return []
+
+async def fetch_movie_cast(movie_id):
     url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={TMDB_API_KEY}&language=en-US"
-    response = requests.get(url)
-    if response.ok:
-        credits = response.json()
-        cast_names = [member["name"] for member in credits.get("cast", [])[:5]]
-        return cast_names
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        if response.status_code == 200:
+            credits = response.json()
+            cast_names = [member["name"] for member in credits.get("cast", [])[:5]]
+            return cast_names
     return []
 
 async def sync_upcoming_movies(pages=1):
     for page in range(1, pages + 1):
-        movie_data = fetch_upcoming_movies(page)
+        movie_data = await fetch_upcoming_movies(page)
         print(f"Fetched {len(movie_data)} movies from page {page}")
         for item in movie_data:
-            cast_list = fetch_movie_cast(item["id"])
+            cast_list = await fetch_movie_cast(item["id"])
             cast_json = json.dumps(cast_list)
             genre_json = json.dumps(item.get("genre_ids", []))
 
