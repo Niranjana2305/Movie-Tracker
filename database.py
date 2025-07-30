@@ -33,8 +33,12 @@ async def fetch_movie_cast(movie_id):
         response = await client.get(url)
         if response.status_code == 200:
             credits = response.json()
-            cast_names = [member["name"] for member in credits.get("cast", [])[:5]]
-            return cast_names
+            # Store cast as list of dicts with name and character for details page compatibility
+            cast_list = [
+                {"name": member["name"], "character": member.get("character", "")}
+                for member in credits.get("cast", [])[:5]
+            ]
+            return cast_list
     return []
 
 async def sync_upcoming_movies(pages=1):
@@ -65,4 +69,3 @@ async def sync_upcoming_movies(pages=1):
                     "genre_ids": genre_json,
                 }
             )
-
