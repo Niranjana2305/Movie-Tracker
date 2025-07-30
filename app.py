@@ -1,4 +1,4 @@
-# run using python -m streamlit run app.py
+import datetime
 import streamlit as st
 import asyncio
 from database import init
@@ -14,7 +14,8 @@ GENRE_MAP = {
 }
 def get_upcoming_movies():
     async def inner():
-        return await Movie.all().order_by("-release_date").limit(20)
+        today = datetime.date.today().isoformat()
+        return await Movie.filter(release_date__gt=today).order_by("release_date").limit(30)
     return asyncio.run(inner())
 def get_all_movies():
     async def inner():
@@ -98,39 +99,35 @@ def show_movie_grid(movies, watchlist_ids=None, show_add=True, show_remove=False
                             st.rerun()
 
 def main():
-    asyncio.run(init())
-
+    if "db_initialized" not in st.session_state:
+        asyncio.run(init())
+        st.session_state["db_initialized"] = True
     st.title("Movie Tracker and Watchlist")
-
     movie_id_param = st.query_params.get("movie_id", [None])[0]
     if movie_id_param:
         from pages import details
         details.show_movie_details(int(movie_id_param))
         return
-
     tab1, tab2 = st.tabs([" Discover", " Watchlist"])
-
     with tab1:
         search = st.text_input("Search for a movie or show")
         selected_genre = st.selectbox("Filter by Genre", ["All"] + list(GENRE_MAP.values()))
         watchlist_ids = get_watchlist_ids()
-
-        if not search and selected_genre == "All":
-            filtered_movies = get_upcoming_movies()
-        elif not search and selected_genre != "All":
-            genre_id = [gid for gid, name in GENRE_MAP.items() if name == selected_genre]
-            movies = get_upcoming_movies()
-            if genre_id:
-                filtered_movies = [
-                    m for m in movies
-                    if m.genre_ids and genre_id[0] in eval(m.genre_ids)
-                ]
-            else:
+        movies = get_upcoming_movies()
+        if not search:
+            if selected_genre == "All":
                 filtered_movies = movies
-        elif search:
-            # Filter all movies by search and genre
-            all_movies = get_all_movies()
-            filtered_movies = all_movies
+            else:
+                genre_id = [gid for gid, name in GENRE_MAP.items() if name == selected_genre]
+                if genre_id:
+                    filtered_movies = [
+                        m for m in movies
+                        if m.genre_ids and genre_id[0] in eval(m.genre_ids)
+                    ]
+                else:
+                    filtered_movies = movies
+        else:
+            filtered_movies = movies
             if selected_genre != "All":
                 genre_id = [gid for gid, name in GENRE_MAP.items() if name == selected_genre]
                 if genre_id:
@@ -144,7 +141,6 @@ def main():
             ]
 
         show_movie_grid(filtered_movies, watchlist_ids=watchlist_ids, show_add=True)
-
     with tab2:
         watchlist_entries = get_watchlist_movies()
         movies = [entry.movie for entry in watchlist_entries if entry.movie]
@@ -173,7 +169,6 @@ def main():
                         st.rerun()
 
                 if entry.watched:
-                    st.markdown("<small><i>Watched</i></small>", unsafe_allow_html=True)
-
+                    st.markdown("Watched", unsafe_allow_html=True)
 if __name__ == "__main__":
     main()
