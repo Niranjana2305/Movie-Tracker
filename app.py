@@ -58,6 +58,7 @@ def get_watchlist_entry(movie_id):
         return await Watchlist.filter(movie_id=movie_id).first()
     return asyncio.run(inner())
 
+
 def show_movie_grid(movies, watchlist_ids=None, show_add=True, show_remove=False, show_watched_toggle=False):
     cols = st.columns(4)
     for idx, movie in enumerate(movies):
@@ -69,11 +70,13 @@ def show_movie_grid(movies, watchlist_ids=None, show_add=True, show_remove=False
             if poster:
                 st.image(f"{IMAGE_BASE_URL}{poster}", use_container_width=True)
             st.markdown(f"**{title}**")
+
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Details", key=f"details_{movie.id}"):
                     st.query_params["movie_id"] = str(movie.id)
                     st.rerun()
+
             with col2:
                 if show_add:
                     if watchlist_ids and movie.id in watchlist_ids:
@@ -93,15 +96,20 @@ def show_movie_grid(movies, watchlist_ids=None, show_add=True, show_remove=False
                         if st.button(label, key=f"watched_{movie.id}"):
                             toggle_watched(movie.id)
                             st.rerun()
+
 def main():
     asyncio.run(init())
+
     st.title("Movie Tracker and Watchlist")
+
     movie_id_param = st.query_params.get("movie_id", [None])[0]
     if movie_id_param:
         from pages import details
         details.show_movie_details(int(movie_id_param))
         return
+
     tab1, tab2 = st.tabs([" Discover", " Watchlist"])
+
     with tab1:
         search = st.text_input("Search for a movie or show")
         selected_genre = st.selectbox("Filter by Genre", ["All"] + list(GENRE_MAP.values()))
@@ -120,6 +128,7 @@ def main():
             else:
                 filtered_movies = movies
         elif search:
+            # Filter all movies by search and genre
             all_movies = get_all_movies()
             filtered_movies = all_movies
             if selected_genre != "All":
@@ -133,10 +142,13 @@ def main():
                 m for m in filtered_movies
                 if search.lower() in (m.title or "").lower()
             ]
+
         show_movie_grid(filtered_movies, watchlist_ids=watchlist_ids, show_add=True)
+
     with tab2:
         watchlist_entries = get_watchlist_movies()
         movies = [entry.movie for entry in watchlist_entries if entry.movie]
+
         cols = st.columns(4)
         for idx, entry in enumerate(watchlist_entries):
             movie = entry.movie
@@ -148,6 +160,7 @@ def main():
                 if movie.poster_path:
                     st.image(f"{IMAGE_BASE_URL}{movie.poster_path}", use_container_width=True)
                 st.markdown(f"**{title}**")
+
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("Remove", key=f"remove_watch_{movie.id}"):
@@ -158,7 +171,9 @@ def main():
                     if st.button(label, key=f"toggle_watch_{movie.id}"):
                         toggle_watched(movie.id)
                         st.rerun()
+
                 if entry.watched:
                     st.markdown("<small><i>Watched</i></small>", unsafe_allow_html=True)
+
 if __name__ == "__main__":
     main()
