@@ -17,7 +17,6 @@ async def init():
     await Tortoise.generate_schemas()
 
 
-# Async fetch upcoming movies from TMDB
 async def fetch_upcoming_movies(page=1):
     url = f"https://api.themoviedb.org/3/movie/upcoming?api_key={TMDB_API_KEY}&language=en-US&page={page}"
     async with httpx.AsyncClient() as client:
@@ -33,7 +32,6 @@ async def fetch_movie_cast(movie_id):
         response = await client.get(url)
         if response.status_code == 200:
             credits = response.json()
-            # Store cast as list of dicts with name and character for details page compatibility
             cast_list = [
                 {"name": member["name"], "character": member.get("character", "")}
                 for member in credits.get("cast", [])[:5]
@@ -48,7 +46,10 @@ async def sync_upcoming_movies(pages=1):
         for item in movie_data:
             cast_list = await fetch_movie_cast(item["id"])
             cast_json = json.dumps(cast_list)
-            genre_json = json.dumps(item.get("genre_ids", []))
+            genre_ids = item.get("genre_ids", [])
+            if isinstance(genre_ids, dict):
+                genre_ids = list(genre_ids.values())
+            genre_json = json.dumps(genre_ids)
 
             release_date = None
             if item.get("release_date"):
